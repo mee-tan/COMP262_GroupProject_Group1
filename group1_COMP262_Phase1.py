@@ -326,3 +326,53 @@ sample_df.to_csv("sentiment_predictions.csv", index=False)
 
 print("\nBoth models completed successfully!")
 print("Results saved to sentiment_predictions.csv")
+
+
+# =========================================================
+# STEP 7: VALIDATE AND COMPARE BOTH MODELS
+# =========================================================
+
+from sklearn.metrics import (
+    accuracy_score, classification_report, confusion_matrix,
+    precision_recall_fscore_support
+)
+
+labels = ['Negative', 'Neutral', 'Positive']
+results = []
+
+for model in ['VADER', 'TextBlob']:
+    y_true = sample_df['sentiment']
+    y_pred = sample_df[f'{model}_Prediction']
+
+    accuracy = accuracy_score(y_true, y_pred)
+    precision, recall, f1, _ = precision_recall_fscore_support(
+        y_true, y_pred, labels=labels, average='macro', zero_division=0
+    )
+
+    print(f"\n{model} Evaluation Results")
+    print("\nClassification Report:")
+    print(classification_report(y_true, y_pred, labels=labels, zero_division=0))
+
+    print("\nConfusion Matrix:")
+    print(pd.DataFrame(
+        confusion_matrix(y_true, y_pred, labels=labels),
+        index=labels, columns=labels
+    ))
+
+    results.append({
+        'Model': model,
+        'Accuracy': round(accuracy, 4),
+        'Precision': round(precision, 4),
+        'Recall': round(recall, 4),
+        'F1-Score': round(f1, 4)
+    })
+
+# Model comparison table
+comparison = pd.DataFrame(results)
+
+print("\nSTEP 7: MODEL COMPARISON")
+print(comparison.to_string(index=False))
+
+comparison.to_csv("step7_comparison.csv", index=False)
+
+print("\nComparison saved to step7_comparison.csv")
