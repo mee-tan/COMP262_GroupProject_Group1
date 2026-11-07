@@ -199,3 +199,130 @@ def check_outliers(df):
 outliers = check_outliers(df)
 print("\nLower bound:", lower_bound)
 print("\nUpper bound:", upper_bound)
+
+
+# =========================================================
+# STEP 4: TEXT PREPROCESSING FOR VADER AND TEXTBLOB
+# =========================================================
+
+import re
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from textblob import TextBlob
+
+# Handle missing review text and summaries
+df['reviewText'] = df['reviewText'].fillna('')
+df['summary'] = df['summary'].fillna('')
+
+# Combine review summary and full review text
+df['text'] = df['summary'] + ' ' + df['reviewText']
+
+# Remove extra whitespace
+df['text'] = df['text'].apply(
+    lambda x: re.sub(r'\s+', ' ', x).strip()
+)
+
+# VADER preprocessing: Preserve original capitalization and punctuation
+df['vader_text'] = df['text']
+
+# TextBlob preprocessing: Convert text to lowercase
+df['textblob_text'] = df['text'].str.lower()
+
+# Remove reviews with empty text
+df = df[df['text'].str.strip() != ''].copy()
+
+print("\nSTEP 4: TEXT PREPROCESSING")
+print("Total reviews after preprocessing:", len(df))
+print(df[['vader_text', 'textblob_text']].head())
+
+
+# =========================================================
+# STEP 5: RANDOMLY SELECT 1000 REVIEWS
+# =========================================================
+
+# Randomly select 1000 reviews using a fixed random seed
+sample_df = df.sample(n=1000, random_state=42).copy()
+
+# Reset the index
+sample_df.reset_index(drop=True, inplace=True)
+
+print("\nSTEP 5: RANDOM SAMPLING")
+print("Total sampled reviews:", len(sample_df))
+
+print("\nSentiment distribution in sample:")
+print(sample_df['sentiment'].value_counts())
+
+# Save the selected reviews
+sample_df.to_csv("sampled_1000_reviews.csv", index=False)
+
+print("\n1000 reviews saved successfully!")
+
+
+# =========================================================
+# STEP 6: SENTIMENT ANALYSIS USING TWO LEXICONS
+# =========================================================
+
+# Initialize VADER
+vader_analyzer = SentimentIntensityAnalyzer()
+
+
+# ---------------------------------------------------------
+# MODEL 1: VADER
+# ---------------------------------------------------------
+
+# Calculate VADER compound sentiment scores
+sample_df['VADER_Score'] = sample_df['vader_text'].apply(
+    lambda x: vader_analyzer.polarity_scores(x)['compound']
+)
+
+# Classify VADER predictions
+sample_df['VADER_Prediction'] = sample_df['VADER_Score'].apply(
+    lambda score: 'Positive' if score >= 0.05
+    else 'Negative' if score <= -0.05
+    else 'Neutral'
+)
+
+
+# ---------------------------------------------------------
+# MODEL 2: TEXTBLOB
+# ---------------------------------------------------------
+
+# Calculate TextBlob polarity scores
+sample_df['TextBlob_Score'] = sample_df['textblob_text'].apply(
+    lambda x: TextBlob(x).sentiment.polarity
+)
+
+# Classify TextBlob predictions
+sample_df['TextBlob_Prediction'] = sample_df['TextBlob_Score'].apply(
+    lambda score: 'Positive' if score > 0
+    else 'Negative' if score < 0
+    else 'Neutral'
+)
+
+
+# ---------------------------------------------------------
+# DISPLAY RESULTS
+# ---------------------------------------------------------
+
+print("\nSTEP 6: SENTIMENT MODELLING")
+
+print("\nVADER Prediction Distribution:")
+print(sample_df['VADER_Prediction'].value_counts())
+
+print("\nTextBlob Prediction Distribution:")
+print(sample_df['TextBlob_Prediction'].value_counts())
+
+print("\nSample Model Predictions:")
+print(sample_df[[
+    'sentiment',
+    'VADER_Score',
+    'VADER_Prediction',
+    'TextBlob_Score',
+    'TextBlob_Prediction'
+]].head(10))
+
+
+# Save predictions for Step 7 validation
+sample_df.to_csv("sentiment_predictions.csv", index=False)
+
+print("\nBoth models completed successfully!")
+print("Results saved to sentiment_predictions.csv")
